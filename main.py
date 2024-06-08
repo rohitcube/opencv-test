@@ -45,20 +45,12 @@ def shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist):
         return lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle
 
 
-def calculate_x_coord_diff_value(a,b):
-    a = np.array(a) # First
-    b = np.array(b) # Mid
-    x_vector = int(a[0] - b[0])
-    return x_vector
-
 cap = cv2.VideoCapture(0)
 
-
-elbow_is_right_angle = True
-# The condition to evaluate whether a rep counts or not, both have to be true, and elbow is right angle has to be true
-wrist_in_line_with_nose = False
-elbow_crosses_shoulder_line = False
-
+# The conditions to evaluate whether a rep counts or not, both have to be true, and elbow is right angle has to be true
+right_elbow_crosses_shoulder_line = False
+forearm_is_straight = True
+right_mouth_in_line_with_finger = False
 reps = 0
 
 
@@ -94,12 +86,14 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             rwrist = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
             l_index_finger = [landmarks[mp_pose.PoseLandmark.LEFT_INDEX.value].x,landmarks[mp_pose.PoseLandmark.LEFT_INDEX.value].y]
             r_index_finger = [landmarks[mp_pose.PoseLandmark.RIGHT_INDEX.value].x,landmarks[mp_pose.PoseLandmark.RIGHT_INDEX.value].y]
-            lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle = shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist)
             lmouth = [landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value].x,landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value].y]
             rmouth = [landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value].x,landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value].y]
+
+            lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle = shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist)
+
             # Calculate angle
             relbow_angle = calculate_angle(rshoulder, relbow, wrist)
-            elbow_shoulder_angle = calculate_angle_with_negative(rshoulder, lshoulder, relbow)
+            right_elbow_shoulder_angle = calculate_angle_with_negative(rshoulder, lshoulder, relbow)
             lshoulder_rshoulder_mouth = calculate_angle(lshoulder, rshoulder, rmouth)
             rshoulder_rmouth_rightindex = calculate_angle(rshoulder, rmouth, r_index_finger)
 
@@ -110,27 +104,21 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA
                                 )
             '''
-            # nose wrist in line check
+            # START CONDITION FOR ONE REP = MOUTH IN LINE WITH INDEX FINGER LANDMARK
             if (abs(lshoulder_rshoulder_mouth-rshoulder_rmouth_rightindex) < 9):
-                mouth_in_line_with_finger = True
-            else:
-                mouth_in_line_with_finger = False
+                right_mouth_in_line_with_finger = True
 
-            # elbow shoulder in line check
+            # END CONDITION FOR ONE REP = IF elbow and shoulder angle is positive
+            if right_elbow_shoulder_angle > 180:
+                right_elbow_crosses_shoulder_line = True
 
-
-            # this should reset aither every upward movement or every downward movement
-            if mouth_in_line_with_finger:
-                loop = True  # Green color if boolean_value is True
-            else:
-                loop = False #"NOT STARTING POS"
-
+            # down, up, down - 1 rep, up, down - 2 rep
             x, y = 50, 250
 
-            lower_threshold, upper_threshold = 80, 100 #can be adjusted
+            lower_threshold, upper_threshold = 50, 10 #can be adjusted
 
             if lshoulder_angle - lelbow_angle < lower_threshold:
-                text2 = "left forearm out wide"
+                text2 = "Left forearm out wide"
             elif lshoulder_angle - lelbow_angle > upper_threshold:
                 text2 = "left forearm leaned in"
             elif rshoulder_angle - relbow_angle < lower_threshold:
@@ -143,18 +131,17 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             # 16, 10 on a straight line, nose and wrist are in the same line
 
             cv2.putText(image, text2, (x, y), cv2.FONT_HERSHEY_TRIPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, str(elbow_shoulder_angle), (500,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-       #    cv2.putText(image, str(lshoulder_rshoulder_mouth), (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-        #   cv2.putText(image, str(rshoulder_rmouth_rightindex), (50, 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, str(right_elbow_shoulder_angle), (500,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, str(reps), (100,600), cv2.FONT_HERSHEY_SIMPLEX, 2.8, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, str(right_mouth_in_line_with_finger), (100, 400), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
             # check rep
-            if wrist_in_line_with_nose:
-                if mouth_in_line_with_finger:
+            if right_mouth_in_line_with_finger:
+                if right_elbow_crosses_shoulder_line and forearm_is_straight:
                     reps += 1
                 # Reset all conditions
-                elbow_is_right_angle = True
-                wrist_in_line_with_nose = False
-                elbow_crosses_shoulder_line = False
+                right_elbow_crosses_shoulder_line = False
+                right_mouth_in_line_with_finger = False
 
 
 
