@@ -16,6 +16,23 @@ def calculate_angle(a,b,c):
 
     return angle
 
+def calculate_angle_with_negative(a,b,c):
+    a = np.array(a) # First
+    b = np.array(b) # Mid
+    c = np.array(c) # End
+
+    radians = np.arctan2(c[1]-b[1], c[0]-b[0]) - np.arctan2(a[1]-b[1], a[0]-b[0])
+    angle = np.abs(radians*180.0/np.pi)
+
+    return angle
+
+def calculate_angle2(a,b):
+    a = np.array(a) # First
+    b = np.array(b) # Mid
+    radians = np.arctan2(a[1]-b[1], a[0]-b[0])
+    angle = np.abs(radians*180.0/np.pi)
+    return angle
+
 #define coordinates
 
 
@@ -28,32 +45,6 @@ def shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist):
         return lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle
 
 
-
-
-def calculate_angle2(a, b):
-    """
-    Calculate the angle (in radians) between two sets of (x, y) coordinates.
-
-    Args:
-        x1 (float): The x-coordinate of the first point.
-        y1 (float): The y-coordinate of the first point.
-        x2 (float): The x-coordinate of the second point.
-        y2 (float): The y-coordinate of the second point.
-
-    Returns:
-        float: The angle (in radians) between the two sets of coordinates.
-    """
-    a = np.array(a) # First
-    b = np.array(b) # Mid
-    # Calculate the differences between the x and y coordinates
-    dx = a[0] - b[0]
-    dy = a[1] - b[1]
-
-    # Calculate the angle using the atan2 function
-    angle = np.arctan2(dy, dx)
-
-    return angle
-
 def calculate_x_coord_diff_value(a,b):
     a = np.array(a) # First
     b = np.array(b) # Mid
@@ -64,10 +55,10 @@ cap = cv2.VideoCapture(0)
 
 
 elbow_is_right_angle = True
-# The condition to evaluate whether a rep counts or not,
+# The condition to evaluate whether a rep counts or not, both have to be true, and elbow is right angle has to be true
 wrist_in_line_with_nose = False
-#
 elbow_crosses_shoulder_line = False
+
 reps = 0
 
 
@@ -92,7 +83,6 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             landmarks = results.pose_landmarks.landmark
 
             # Get coordinates
-            shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
             elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
             wrist = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
             nose = [landmarks[mp_pose.PoseLandmark.NOSE.value].x,landmarks[mp_pose.PoseLandmark.NOSE.value].y]
@@ -102,33 +92,38 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             relbow = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
             lwrist = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
             rwrist = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
-
+            l_index_finger = [landmarks[mp_pose.PoseLandmark.LEFT_INDEX.value].x,landmarks[mp_pose.PoseLandmark.LEFT_INDEX.value].y]
+            r_index_finger = [landmarks[mp_pose.PoseLandmark.RIGHT_INDEX.value].x,landmarks[mp_pose.PoseLandmark.RIGHT_INDEX.value].y]
             lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle = shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist)
-
+            lmouth = [landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value].x,landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value].y]
+            rmouth = [landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value].x,landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value].y]
             # Calculate angle
-            elbow_angle = calculate_angle(shoulder, elbow, wrist)
-            nose_wrist_angle = calculate_angle2(wrist, nose)
-            elbow_wrist_x_coord_difference = abs(calculate_x_coord_diff_value(wrist, nose))
+            relbow_angle = calculate_angle(rshoulder, relbow, wrist)
+            elbow_shoulder_angle = calculate_angle_with_negative(rshoulder, lshoulder, relbow)
+            lshoulder_rshoulder_mouth = calculate_angle(lshoulder, rshoulder, rmouth)
+            rshoulder_rmouth_rightindex = calculate_angle(rshoulder, rmouth, r_index_finger)
 
             # Visualize angle
-            cv2.putText(image, str(elbow_angle),
+            '''
+            cv2.putText(image, str(relbow_angle),
                            tuple(np.multiply(elbow, [640, 480]).astype(int)),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA
                                 )
-
+            '''
             # nose wrist in line check
-            if (nose_wrist_angle < 20 or nose_wrist_angle > -20):
-              wrist_in_line_with_nose = True
+            if (abs(lshoulder_rshoulder_mouth-rshoulder_rmouth_rightindex) < 9):
+                mouth_in_line_with_finger = True
+            else:
+                mouth_in_line_with_finger = False
 
-            # elbow angle check
-            if (elbow_wrist_x_coord_difference < 0.8):
-                elbow_is_right_angle = False
+            # elbow shoulder in line check
+
 
             # this should reset aither every upward movement or every downward movement
-            if elbow_is_right_angle:
-                text = "GOOD FORM!" # Green color if boolean_value is True
+            if mouth_in_line_with_finger:
+                loop = True  # Green color if boolean_value is True
             else:
-                 text = "ELBOW AINT RIGHT"
+                loop = False #"NOT STARTING POS"
 
             x, y = 50, 250
 
@@ -147,17 +142,20 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
 
             # 16, 10 on a straight line, nose and wrist are in the same line
 
-            cv2.putText(image, text2, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 5, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, str(elbow_crosses_shoulder_line), (100,400), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, str(reps), (50, 300), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, text2, (x, y), cv2.FONT_HERSHEY_TRIPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, str(elbow_shoulder_angle), (500,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+       #    cv2.putText(image, str(lshoulder_rshoulder_mouth), (100,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+        #   cv2.putText(image, str(rshoulder_rmouth_rightindex), (50, 300), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
+            # check rep
             if wrist_in_line_with_nose:
-                if elbow_crosses_shoulder_line and elbow_is_right_angle:
+                if mouth_in_line_with_finger:
                     reps += 1
                 # Reset all conditions
                 elbow_is_right_angle = True
                 wrist_in_line_with_nose = False
                 elbow_crosses_shoulder_line = False
+
 
 
         except:
