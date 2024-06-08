@@ -49,9 +49,9 @@ cap = cv2.VideoCapture(0)
 
 # The conditions to evaluate whether a rep counts or not, both have to be true, and elbow is right angle has to be true
 right_elbow_crosses_shoulder_line = False
-forearm_is_straight = True
 right_mouth_in_line_with_finger = False
 reps = 0
+forearm_is_straight = True
 
 
 # assigning two modules from the MediaPipe library to variables mp_drawing and mp_pose.
@@ -89,21 +89,15 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             lmouth = [landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value].x,landmarks[mp_pose.PoseLandmark.MOUTH_LEFT.value].y]
             rmouth = [landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value].x,landmarks[mp_pose.PoseLandmark.MOUTH_RIGHT.value].y]
 
+
+            # Calculate angles
             lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle = shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist)
 
-            # Calculate angle
             relbow_angle = calculate_angle(rshoulder, relbow, wrist)
             right_elbow_shoulder_angle = calculate_angle_with_negative(rshoulder, lshoulder, relbow)
             lshoulder_rshoulder_mouth = calculate_angle(lshoulder, rshoulder, rmouth)
             rshoulder_rmouth_rightindex = calculate_angle(rshoulder, rmouth, r_index_finger)
 
-            # Visualize angle
-            '''
-            cv2.putText(image, str(relbow_angle),
-                           tuple(np.multiply(elbow, [640, 480]).astype(int)),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA
-                                )
-            '''
             # START CONDITION FOR ONE REP = MOUTH IN LINE WITH INDEX FINGER LANDMARK
             if (abs(lshoulder_rshoulder_mouth-rshoulder_rmouth_rightindex) < 9):
                 right_mouth_in_line_with_finger = True
@@ -112,10 +106,7 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             if right_elbow_shoulder_angle > 180:
                 right_elbow_crosses_shoulder_line = True
 
-            # down, up, down - 1 rep, up, down - 2 rep
-            x, y = 50, 250
-
-            lower_threshold, upper_threshold = 50, 10 #can be adjusted
+            lower_threshold, upper_threshold = 50, 130 # HAVE NOT FOUND APPROPRIATE VALUES FOR THIS YET
 
             if lshoulder_angle - lelbow_angle < lower_threshold:
                 text2 = "Left forearm out wide"
@@ -128,22 +119,20 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
             else:
                 text2 = "Good Form!"
 
-            # 16, 10 on a straight line, nose and wrist are in the same line
-
-            cv2.putText(image, text2, (x, y), cv2.FONT_HERSHEY_TRIPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
+            cv2.putText(image, text2, (50, 250), cv2.FONT_HERSHEY_TRIPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.putText(image, str(right_elbow_shoulder_angle), (500,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.putText(image, str(reps), (100,600), cv2.FONT_HERSHEY_SIMPLEX, 2.8, (255, 255, 255), 2, cv2.LINE_AA)
             cv2.putText(image, str(right_mouth_in_line_with_finger), (100, 400), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
-            # check rep
+            # REP COUNTER
             if right_mouth_in_line_with_finger:
+                # when values for thresholds are finalised, change forearm_is_straight value to a boolean
+                # also add a check for left elbow
                 if right_elbow_crosses_shoulder_line and forearm_is_straight:
                     reps += 1
                 # Reset all conditions
                 right_elbow_crosses_shoulder_line = False
                 right_mouth_in_line_with_finger = False
-
-
 
         except:
             pass
@@ -153,13 +142,6 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
                                 mp_drawing.DrawingSpec(color=(245,66,230), thickness=2, circle_radius=2))
 
         k = cv2.waitKey(1)
-
-        """
-        if k == 117:
-            export_landmark(results, 'up')
-        if k == 100:
-            export_landmark(results, 'down')
-        """
 
         cv2.imshow("Raw feed", image)
         if cv2.waitKey(1) == ord('q'):
