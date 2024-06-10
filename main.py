@@ -2,6 +2,7 @@ import cv2
 import math
 import numpy as np
 import mediapipe as mp
+import time
 
 def calculate_angle(a,b,c):
     a = np.array(a) # First
@@ -45,13 +46,14 @@ def shoulderpress(lshoulder, rshoulder, lelbow, relbow, lwrist, rwrist):
         return lshoulder_angle, lelbow_angle, rshoulder_angle, relbow_angle
 
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture('/Users/rohit/Downloads/VIDEO-2024-06-09-00-18-36.MP4')
 
 # The conditions to evaluate whether a rep counts or not, both have to be true, and elbow is right angle has to be true
 right_elbow_crosses_shoulder_line = False
 right_mouth_in_line_with_finger = False
 reps = 0
 forearm_is_straight = True
+last_frame_was_a_rep = 0
 
 
 # assigning two modules from the MediaPipe library to variables mp_drawing and mp_pose.
@@ -103,26 +105,28 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
                 right_mouth_in_line_with_finger = True
 
             # END CONDITION FOR ONE REP = IF elbow and shoulder angle is positive
-            if right_elbow_shoulder_angle > 180:
+            if right_elbow_shoulder_angle > 0 and right_elbow_shoulder_angle < 0.8:
                 right_elbow_crosses_shoulder_line = True
 
-            lower_threshold, upper_threshold = 50, 130 # HAVE NOT FOUND APPROPRIATE VALUES FOR THIS YET
-
+            lower_threshold, upper_threshold = 70, 130 # HAVE NOT FOUND APPROPRIATE VALUES FOR THIS YET
+            '''
             if lshoulder_angle - lelbow_angle < lower_threshold:
                 text2 = "Left forearm out wide"
             elif lshoulder_angle - lelbow_angle > upper_threshold:
+                text2 = "Left forearm leaned in"
+                '''
+            if lshoulder_angle < 140:
                 text2 = "left forearm leaned in"
-            elif rshoulder_angle - relbow_angle < lower_threshold:
-                text2 = "right forearm out wide"
-            elif rshoulder_angle - relbow_angle > upper_threshold:
-                text2 = "right forearm leaned in"
+            elif lelbow_angle > 90:
+                text2 = "left forearm out wide"
             else:
                 text2 = "Good Form!"
 
-            cv2.putText(image, text2, (50, 250), cv2.FONT_HERSHEY_TRIPLEX, 3, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, str(right_elbow_shoulder_angle), (500,400), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, str(reps), (100,600), cv2.FONT_HERSHEY_SIMPLEX, 2.8, (255, 255, 255), 2, cv2.LINE_AA)
-            cv2.putText(image, str(right_mouth_in_line_with_finger), (100, 400), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(image, text2, (20, 50), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(image, f'left_wide: {lshoulder_angle}', (80,200), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(image, f'right_in: {lelbow_angle}', (80,250), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(image, f'Reps: {reps}', (20,80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+            #cv2.putText(image, str(right_mouth_in_line_with_finger), (100, 400), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
             # REP COUNTER
             if right_mouth_in_line_with_finger:
@@ -130,9 +134,11 @@ with mp_pose.Pose(min_detection_confidence = 0.5, min_tracking_confidence=0.5) a
                 # also add a check for left elbow
                 if right_elbow_crosses_shoulder_line and forearm_is_straight:
                     reps += 1
+                    #time.sleep(1)
                 # Reset all conditions
                 right_elbow_crosses_shoulder_line = False
                 right_mouth_in_line_with_finger = False
+
 
         except:
             pass
